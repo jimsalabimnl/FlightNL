@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Simple Flask server that acts as a proxy for the OpenSky API
-and serves the static files
+and serves the built React app from dist/ folder
 """
 
 import os
@@ -9,11 +9,18 @@ import sys
 import requests
 from flask import Flask, jsonify, send_from_directory
 from flask_cors import CORS
+from pathlib import Path
 
 # Ensure stdout is unbuffered
 sys.stdout = open(sys.stdout.fileno(), 'w', buffering=1)
 
-app = Flask(__name__, static_folder='.', static_url_path='')
+# Determine the correct static folder
+# In production, serve from dist/ (built React app)
+# In development, serve from current directory
+dist_dir = Path(__file__).parent / 'dist'
+static_dir = str(dist_dir) if dist_dir.exists() else '.'
+
+app = Flask(__name__, static_folder=static_dir, static_url_path='')
 CORS(app)
 
 API_KEY = 'edfe4726c29410af8d35568227167bea'
@@ -68,12 +75,16 @@ def get_flights():
 @app.route('/')
 def index():
     """Serve index.html"""
-    return send_from_directory('.', 'index.html')
+    return send_from_directory(static_dir, 'index.html')
 
 @app.route('/<path:filename>')
 def serve_static(filename):
     """Serve static files"""
-    return send_from_directory('.', filename)
+    try:
+        return send_from_directory(static_dir, filename)
+    except:
+        # Fall back to index.html for React Router
+        return send_from_directory(static_dir, 'index.html')
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
